@@ -131,10 +131,10 @@ public class StripeReader
             Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
 
             // read the bloomfilter for each column
-            Map<Integer, List<RowGroupBloomfilter>> bfIndexes = readBloomfilterIndexes(streams, streamsData);
+            Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes = readBloomfilterIndexes(streams, streamsData);
 
             // select the row groups matching the tuple domain
-            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
+            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes, bloomfilterIndexes);
 
             // if all row groups are skipped, return null
             if (selectedRowGroups.isEmpty()) {
@@ -360,7 +360,7 @@ public class StripeReader
     }
 
     // This has something todo with selecting row groups in a stripe, use bloomfilter here? push bloom filter code into the predicate?
-    private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes)
+    private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes, Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes)
             throws IOException
     {
         int rowsInStripe = Ints.checkedCast(stripe.getNumberOfRows());
@@ -370,7 +370,7 @@ public class StripeReader
         int remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, rowGroup);
+            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, bloomfilterIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
             }
@@ -379,7 +379,7 @@ public class StripeReader
         return selectedRowGroups.build();
     }
 
-    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<Integer, List<RowGroupIndex>> columnIndexes, int rowGroup)
+    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<Integer, List<RowGroupIndex>> columnIndexes, Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes, int rowGroup)
     {
         requireNonNull(rootStructType, "rootStructType is null");
         checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
