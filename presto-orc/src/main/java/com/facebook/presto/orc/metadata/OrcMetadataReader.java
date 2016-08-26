@@ -149,6 +149,17 @@ public class OrcMetadataReader
         return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), OrcMetadataReader::toRowGroupIndex));
     }
 
+    @Override
+    public List<RowGroupBloomfilter> readBloomfilterIndexes(InputStream inputStream)
+            throws IOException
+    {
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        OrcProto.BloomFilter bf = OrcProto.BloomFilter.parseFrom(input);
+        // @todo actually return this in a wrapped RowGroupBloomfilter
+        log.info("Found serialized bloomfilter of size " + bf.getSerializedSize());
+        return ImmutableList.of(new RowGroupBloomfilter(bf));
+    }
+
     private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();

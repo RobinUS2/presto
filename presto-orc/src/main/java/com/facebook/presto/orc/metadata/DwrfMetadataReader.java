@@ -140,6 +140,14 @@ public class DwrfMetadataReader
         return ImmutableList.copyOf(Iterables.transform(rowIndex.getEntryList(), DwrfMetadataReader::toRowGroupIndex));
     }
 
+    @Override
+    public List<RowGroupBloomfilter> readBloomfilterIndexes(InputStream inputStream)
+            throws IOException
+    {
+        // Not implemented for Dwrf, return empty list
+        return ImmutableList.of();
+    }
+
     private static RowGroupIndex toRowGroupIndex(OrcProto.RowIndexEntry rowIndexEntry)
     {
         List<Long> positionsList = rowIndexEntry.getPositionsList();
