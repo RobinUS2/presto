@@ -17,6 +17,7 @@ import com.facebook.presto.orc.checkpoint.InvalidCheckpointException;
 import com.facebook.presto.orc.checkpoint.StreamCheckpoint;
 import com.facebook.presto.orc.memory.AbstractAggregatedMemoryContext;
 import com.facebook.presto.orc.memory.AggregatedMemoryContext;
+import com.facebook.presto.orc.metadata.RowGroupBloomfilter;
 import com.facebook.presto.orc.metadata.ColumnEncoding;
 import com.facebook.presto.orc.metadata.ColumnEncoding.ColumnEncodingKind;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
@@ -43,6 +44,7 @@ import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.hive.ql.io.orc.OrcProto;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -128,6 +130,9 @@ public class StripeReader
 
             // read the row index for each column
             Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
+
+            // read the bloomfilter for each column
+            Map<Integer, List<RowGroupBloomfilter>> bfIndexes = readBloomfilterIndexes(streams, streamsData);
 
             // select the row groups matching the tuple domain
             Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
@@ -327,6 +332,20 @@ public class StripeReader
         }
     }
 
+    private Map<Integer, List<RowGroupBloomfilter>> readBloomfilterIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
+            throws IOException
+    {
+        ImmutableMap.Builder<Integer, List<RowGroupBloomfilter>> bfIndexes = ImmutableMap.builder();
+        for (Entry<StreamId, Stream> entry : streams.entrySet()) {
+            Stream stream = entry.getValue();
+            if (stream.getStreamKind() == BLOOM_FILTER) {
+                OrcInputStream inputStream = streamsData.get(entry.getKey());
+                bfIndexes.put(stream.getColumn(), metadataReader.readBloomfilterIndexes(inputStream));
+            }
+        }
+        return bfIndexes.build();
+    }
+
     private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
             throws IOException
     {
@@ -341,6 +360,7 @@ public class StripeReader
         return columnIndexes.build();
     }
 
+    // This has something todo with selecting row groups in a stripe, use bloomfilter here? push bloom filter code into the predicate?
     private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes)
             throws IOException
     {

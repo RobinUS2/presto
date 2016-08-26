@@ -22,6 +22,7 @@ public class ColumnStatistics
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
     private final DecimalStatistics decimalStatistics;
+    // bloom filter here
 
     public ColumnStatistics(
             Long numberOfValues,

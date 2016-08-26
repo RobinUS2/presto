@@ -71,9 +71,18 @@ public class TupleDomainOrcPredicate<C>
             }
             domains.put(columnReference.getColumn(), domain);
         }
+        // this is where we create a domain for this stripe, basically a map of what this stripe contains
         TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
-        return effectivePredicate.overlaps(stripeDomain);
+        // Compare effective predicate with the current stripe
+        if (!effectivePredicate.overlaps(stripeDomain)) {
+            // No overlap, stop here
+            return false;
+        }
+
+        // @todo check bloom filter here
+
+        return true;
     }
 
     @VisibleForTesting

@@ -24,6 +24,8 @@ public class RowGroupIndex
     private final List<Integer> positions;
     private final ColumnStatistics statistics;
 
+    // @TODO Bloomfilter?
+
     public RowGroupIndex(List<Integer> positions, ColumnStatistics statistics)
     {
         this.positions = ImmutableList.copyOf(requireNonNull(positions, "positions is null"));
