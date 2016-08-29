@@ -166,6 +166,10 @@ public class TupleDomainOrcPredicate<C>
                         allPassedBloomfilters = false;
                     }
                 }
+                else {
+                    // no domain found for column, treat as failure
+                    allPassedBloomfilters = false;
+                }
             }
             else {
                 allPassedBloomfilters = false;
