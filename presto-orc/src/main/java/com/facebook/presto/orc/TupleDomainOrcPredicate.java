@@ -101,11 +101,13 @@ public class TupleDomainOrcPredicate<C>
         for (ColumnReference<C> columnReference : columnReferences) {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
+                log.info("No column stats");
                 continue;
             }
 
             List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
             if (bloomfilters == null || bloomfilters.isEmpty()) {
+                log.info("No bloomfilters");
                 continue;
             }
 
@@ -154,11 +156,15 @@ public class TupleDomainOrcPredicate<C>
                     }
                 }
             }
+            else {
+                log.info("No predicate domains");
+            }
         }
 
         // none of the bloomfilters caused a "hit" meaning we should not read
         log.info("Not reading thanks to our bloomfilters :)");
-        return false;
+        // @todo replace below with false
+        return true;
     }
 
     private TruthValue checkInBloomFilter(BloomFilter bf, Object predObj, boolean hasNull)
