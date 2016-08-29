@@ -153,9 +153,10 @@ public class OrcMetadataReader
     public List<RowGroupBloomfilter> readBloomfilterIndexes(InputStream inputStream)
             throws IOException
     {
-        CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        OrcProto.BloomFilter bf = OrcProto.BloomFilter.parseFrom(input);
+//        CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        OrcProto.BloomFilter bf = OrcProto.BloomFilter.parseDelimitedFrom(inputStream);
         log.info("Found serialized bloomfilter of size " + bf.getSerializedSize() + " numfunctions=" + bf.getNumHashFunctions() + " bscount=" + bf.getBitsetCount() + " init=" + bf.isInitialized());
+        log.info("Unknown fields " + bf.getUnknownFields().getSerializedSize());
         return ImmutableList.of(new RowGroupBloomfilter(bf));
     }
 
