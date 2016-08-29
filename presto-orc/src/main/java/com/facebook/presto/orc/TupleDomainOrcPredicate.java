@@ -15,12 +15,12 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
-import com.facebook.presto.orc.metadata.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.RangeStatistics;
 import com.facebook.presto.orc.metadata.RowGroupBloomfilter;
 import com.facebook.presto.spi.predicate.Domain;
 import com.facebook.presto.spi.predicate.EquatableValueSet;
 import com.facebook.presto.spi.predicate.Range;
+import com.facebook.presto.spi.predicate.SortedRangeSet;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
 import com.facebook.presto.spi.type.DecimalType;
@@ -32,8 +32,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import org.apache.hadoop.hive.ql.io.sarg.SearchArgument.TruthValue;
+import org.apache.hadoop.hive.serde2.io.DateWritable;
+import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hive.common.util.BloomFilter;
 
+import java.math.BigDecimal;
+import java.sql.Date;
+import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -113,27 +121,94 @@ public class TupleDomainOrcPredicate<C>
                     log.info("values type " + values.getType().getDisplayName());
                     log.info("values class " + values.getClass().getCanonicalName());
                     log.info("values  " + values.toString());
+                    Collection<Object> predicateValues = null;
                     if (values instanceof EquatableValueSet) {
-                        EquatableValueSet eqValues = ((EquatableValueSet) values);
+                        EquatableValueSet eqValues = (EquatableValueSet) values;
                         if (eqValues.isWhiteList()) {
-                            Collection<Object> values1 = values.getDiscreteValues().getValues();
-                            for (Object o : values1) {
-                                log.info("Equatable value set value=" + String.valueOf(o));
+                            // we can only work with values we know, not excluded blacklists because other rows might contain the data we need
+                            predicateValues = values.getDiscreteValues().getValues();
+                        }
+                    }
+                    else if (values instanceof SortedRangeSet) {
+                        SortedRangeSet sortedRangeSet = (SortedRangeSet) values;
+                        // sorted range set is used for integer comparison (e.g. id = 123 ) where min and max is the same value
+                        if (sortedRangeSet.isSingleValue()) {
+                            predicateValues = new ArrayList<>();
+                            predicateValues.add(sortedRangeSet.getSingleValue());
+                        }
+                    }
+                    if (predicateValues != null) {
+                        for (Object o : predicateValues) {
+                            log.info("Equatable value set value=" + String.valueOf(o));
+
+                            for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
+                                BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
+                                log.info("bf = " + bloomfilter.toString());
+                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, false); // @todo replace false with hasnull from orc column stats
+                                if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
+                                    // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
+                                    return true;
+                                }
                             }
                         }
                     }
                 }
             }
-            for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
-                BloomFilter bf = new HiveBloomFilter(rowGroupBloomfilter.getBloomfilter().getBitsetList(), rowGroupBloomfilter.getBloomfilter().getBitsetCount(), rowGroupBloomfilter.getBloomfilter().getNumHashFunctions());
-                log.info("bf = " + bf.toString());
-                log.info("bitset  = " + rowGroupBloomfilter.getBloomfilter().getBitsetList());
-                // @todo if bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
+        }
+
+        // none of the bloomfilters caused a "hit" meaning we should not read
+        log.info("Not reading thanks to our bloomfilters :)");
+        return false;
+    }
+
+    private TruthValue checkInBloomFilter(BloomFilter bf, Object predObj, boolean hasNull)
+    {
+        TruthValue result = hasNull ? TruthValue.NO_NULL : TruthValue.NO;
+
+        if (predObj instanceof Long) {
+            if (bf.testLong(((Long) predObj).longValue())) {
+                result = TruthValue.YES_NO_NULL;
             }
         }
-        // @todo if none of the bloomfilters matched we should return a false here
+        else if (predObj instanceof Double) {
+            if (bf.testDouble(((Double) predObj).doubleValue())) {
+                result = TruthValue.YES_NO_NULL;
+            }
+        }
+        else if (predObj instanceof String || predObj instanceof Text ||
+                predObj instanceof HiveDecimalWritable ||
+                predObj instanceof BigDecimal) {
+            if (bf.testString(predObj.toString())) {
+                result = TruthValue.YES_NO_NULL;
+            }
+        }
+        else if (predObj instanceof Timestamp) {
+            if (bf.testLong(((Timestamp) predObj).getTime())) {
+                result = TruthValue.YES_NO_NULL;
+            }
+        }
+        else if (predObj instanceof Date) {
+            if (bf.testLong(DateWritable.dateToDays((Date) predObj))) {
+                result = TruthValue.YES_NO_NULL;
+            }
+        }
+        else {
+            // if the predicate object is null and if hasNull says there are no nulls then return NO
+            if (predObj == null && !hasNull) {
+                result = TruthValue.NO;
+            }
+            else {
+                result = TruthValue.YES_NO_NULL;
+            }
+        }
 
-        return true;
+        if (result == TruthValue.YES_NO_NULL && !hasNull) {
+            result = TruthValue.YES_NO;
+        }
+
+        log.debug("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
+
+        return result;
     }
 
     @VisibleForTesting

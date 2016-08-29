@@ -14,17 +14,25 @@
 package com.facebook.presto.orc.metadata;
 
 import org.apache.hadoop.hive.ql.io.orc.OrcProto;
+import org.apache.hive.common.util.BloomFilter;
 
 public final class RowGroupBloomfilter
 {
-    private final OrcProto.BloomFilter bf;
+    private final OrcProto.BloomFilter orcBf;
+    private final HiveBloomFilter bf;
 
     public RowGroupBloomfilter(OrcProto.BloomFilter bf)
     {
-        this.bf = bf;
+        this.orcBf = bf;
+        this.bf = new HiveBloomFilter(getOrcBloomfilter().getBitsetList(), getOrcBloomfilter().getBitsetCount(), getOrcBloomfilter().getNumHashFunctions());
     }
 
-    public OrcProto.BloomFilter getBloomfilter()
+    public OrcProto.BloomFilter getOrcBloomfilter()
+    {
+        return orcBf;
+    }
+
+    public BloomFilter getBloomfilter()
     {
         return bf;
     }

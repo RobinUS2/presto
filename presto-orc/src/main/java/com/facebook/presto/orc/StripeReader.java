@@ -361,8 +361,9 @@ public class StripeReader
                 if (bloomfilters != null && !bloomfilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> tmpRowGroupIndexes = ImmutableList.builder();
                     for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
-                        log.debug("RowGroupIndex " + rowGroupIndex.getPositions() + " positions " + bloomfilterIndexes.size() + " bfs"); // @todo remove
+                        log.debug("RowGroupIndex " + rowGroupIndex.getPositions() + " positions " + bloomfilters.size() + " bfs"); // @todo remove
                         ColumnStatistics columnStatisticsNoBf = rowGroupIndex.getColumnStatistics();
+                        // @todo check if we should add only one bloom filter per rowgroupindex? seems we should match the index instead of add all
                         ColumnStatistics columnStatistics = new ColumnStatistics(columnStatisticsNoBf, bloomfilters);
                         tmpRowGroupIndexes.add(new RowGroupIndex(rowGroupIndex.getPositions(), columnStatistics));
                     }
