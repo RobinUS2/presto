@@ -153,7 +153,7 @@ public class TupleDomainOrcPredicate<C>
                             for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
                                 BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
                                 log.info("bf = " + bloomfilter.toString());
-                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, false); // @todo replace false with hasnull from orc column stats
+                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, true); // @todo replace false with hasnull from orc column stats
                                 if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
                                     // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
                                     return true;
@@ -217,6 +217,7 @@ public class TupleDomainOrcPredicate<C>
 //        }
         else {
             // @todo enable code below once support for Text HiveDecimalWritable and Date is done
+            log.warn("Bloom filter check not supported for type " + predObj);
             return TruthValue.YES;
 //            // if the predicate object is null and if hasNull says there are no nulls then return NO
 //            if (predObj == null && !hasNull) {
