@@ -444,7 +444,6 @@ public class OrcMetadataReader
             case ROW_INDEX:
                 return StreamKind.ROW_INDEX;
             case BLOOM_FILTER:
-                log.debug("ORC Bloom filter stream detected, not yet implemented, ignoring and continuing without using bloomfilter as predicate");
                 return StreamKind.BLOOM_FILTER;
             default:
                 throw new IllegalStateException(streamKind + " stream type not implemented yet");

@@ -98,15 +98,18 @@ public class TupleDomainOrcPredicate<C>
         }
 
         // check bloomfilters (more expensive so separated from the domain check above)
+        boolean allPassedBloomfilters = true;
         for (ColumnReference<C> columnReference : columnReferences) {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
+                allPassedBloomfilters = false;
                 log.info("No column stats");
                 continue;
             }
 
             List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
             if (bloomfilters == null || bloomfilters.isEmpty()) {
+                allPassedBloomfilters = false;
                 log.info("No bloomfilters");
                 continue;
             }
@@ -118,6 +121,8 @@ public class TupleDomainOrcPredicate<C>
                 Map<C, Domain> cDomainMap = domains1.get();
                 if (cDomainMap.containsKey(columnReference.getColumn())) {
                     log.info("found effective predicate domains for colujmn");
+
+                    // extract values
                     Domain domain = cDomainMap.get(columnReference.getColumn());
                     ValueSet values = domain.getValues();
                     log.info("values type " + values.getType().getDisplayName());
@@ -139,7 +144,9 @@ public class TupleDomainOrcPredicate<C>
                             predicateValues.add(sortedRangeSet.getSingleValue());
                         }
                     }
-                    if (predicateValues != null) {
+
+                    // run values against the bloomfilters
+                    if (predicateValues != null && !predicateValues.isEmpty()) {
                         for (Object o : predicateValues) {
                             log.info("Equatable value set value=" + String.valueOf(o));
 
@@ -154,16 +161,25 @@ public class TupleDomainOrcPredicate<C>
                             }
                         }
                     }
+                    else {
+                        // no values checked, treat as failure
+                        allPassedBloomfilters = false;
+                    }
                 }
             }
             else {
+                allPassedBloomfilters = false;
                 log.info("No predicate domains");
             }
         }
 
-        // none of the bloomfilters caused a "hit" meaning we should not read
-        log.info("Not reading thanks to our bloomfilters :)");
-        // @todo replace below with false
+        if (allPassedBloomfilters) {
+            // none of the bloomfilters caused a "hit" meaning we should not read
+            log.info("Not reading thanks to our bloomfilters :)");
+            return false;
+        }
+
+        // not enough knowledge in the bloomfilters, let's read it anyway
         return true;
     }
 
