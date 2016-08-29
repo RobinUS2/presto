@@ -33,13 +33,13 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import org.apache.hadoop.hive.ql.io.sarg.SearchArgument.TruthValue;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
-import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
-import org.apache.hadoop.io.Text;
+//import org.apache.hadoop.hive.serde2.io.DateWritable;
+//import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
+//import org.apache.hadoop.io.Text;
 import org.apache.hive.common.util.BloomFilter;
 
 import java.math.BigDecimal;
-import java.sql.Date;
+//import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -175,8 +175,9 @@ public class TupleDomainOrcPredicate<C>
                 result = TruthValue.YES_NO_NULL;
             }
         }
-        else if (predObj instanceof String || predObj instanceof Text ||
-                predObj instanceof HiveDecimalWritable ||
+        else if (predObj instanceof String ||
+//                predObj instanceof Text ||
+//                predObj instanceof HiveDecimalWritable ||
                 predObj instanceof BigDecimal) {
             if (bf.testString(predObj.toString())) {
                 result = TruthValue.YES_NO_NULL;
@@ -187,19 +188,21 @@ public class TupleDomainOrcPredicate<C>
                 result = TruthValue.YES_NO_NULL;
             }
         }
-        else if (predObj instanceof Date) {
-            if (bf.testLong(DateWritable.dateToDays((Date) predObj))) {
-                result = TruthValue.YES_NO_NULL;
-            }
-        }
+//        else if (predObj instanceof Date) {
+//            if (bf.testLong(DateWritable.dateToDays((Date) predObj))) {
+//                result = TruthValue.YES_NO_NULL;
+//            }
+//        }
         else {
-            // if the predicate object is null and if hasNull says there are no nulls then return NO
-            if (predObj == null && !hasNull) {
-                result = TruthValue.NO;
-            }
-            else {
-                result = TruthValue.YES_NO_NULL;
-            }
+            // @todo enable code below once support for Text HiveDecimalWritable and Date is done
+            return TruthValue.YES;
+//            // if the predicate object is null and if hasNull says there are no nulls then return NO
+//            if (predObj == null && !hasNull) {
+//                result = TruthValue.NO;
+//            }
+//            else {
+//                result = TruthValue.YES_NO_NULL;
+//            }
         }
 
         if (result == TruthValue.YES_NO_NULL && !hasNull) {
