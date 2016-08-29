@@ -104,10 +104,15 @@ public class TupleDomainOrcPredicate<C>
             // @todo refactor logic
             Optional<Map<C, Domain>> domains1 = effectivePredicate.getDomains();
             if (domains1.isPresent()) {
+                log.info("found effective predicate domains");
                 Map<C, Domain> cDomainMap = domains1.get();
                 if (cDomainMap.containsKey(columnReference.getColumn())) {
+                    log.info("found effective predicate domains for colujmn");
                     Domain domain = cDomainMap.get(columnReference.getColumn());
                     ValueSet values = domain.getValues();
+                    log.info("values type " + values.getType().getDisplayName());
+                    log.info("values class " + values.getClass().getCanonicalName());
+                    log.info("values  " + values.toString());
                     if (values instanceof EquatableValueSet) {
                         EquatableValueSet eqValues = ((EquatableValueSet) values);
                         if (eqValues.isWhiteList()) {
@@ -122,6 +127,7 @@ public class TupleDomainOrcPredicate<C>
             for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
                 BloomFilter bf = new HiveBloomFilter(rowGroupBloomfilter.getBloomfilter().getBitsetList(), rowGroupBloomfilter.getBloomfilter().getBitsetCount(), rowGroupBloomfilter.getBloomfilter().getNumHashFunctions());
                 log.info("bf = " + bf.toString());
+                log.info("bitset  = " + rowGroupBloomfilter.getBloomfilter().getBitsetList());
                 // @todo if bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
             }
         }
