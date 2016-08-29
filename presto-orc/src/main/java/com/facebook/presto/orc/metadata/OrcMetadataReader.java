@@ -153,11 +153,15 @@ public class OrcMetadataReader
     public List<RowGroupBloomfilter> readBloomfilterIndexes(InputStream inputStream)
             throws IOException
     {
-//        CodedInputStream input = CodedInputStream.newInstance(inputStream);
-        OrcProto.BloomFilter bf = OrcProto.BloomFilter.parseDelimitedFrom(inputStream);
-        log.info("Found serialized bloomfilter of size " + bf.getSerializedSize() + " numfunctions=" + bf.getNumHashFunctions() + " bscount=" + bf.getBitsetCount() + " init=" + bf.isInitialized());
-        log.info("Unknown fields " + bf.getUnknownFields().getSerializedSize());
-        return ImmutableList.of(new RowGroupBloomfilter(bf));
+        CodedInputStream input = CodedInputStream.newInstance(inputStream);
+        OrcProto.BloomFilterIndex bf = OrcProto.BloomFilterIndex.parseFrom(input);
+        List<OrcProto.BloomFilter> bloomFilterList = bf.getBloomFilterList();
+        ImmutableList.Builder<RowGroupBloomfilter> builder = ImmutableList.<RowGroupBloomfilter>builder();
+        for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
+            log.info("Found serialized orc bloomfilter of size " + orcBloomFilter.getSerializedSize() + " numfunctions=" + orcBloomFilter.getNumHashFunctions() + " bscount=" + orcBloomFilter.getBitsetCount() + " init=" + orcBloomFilter.isInitialized());
+            builder.add(new RowGroupBloomfilter(orcBloomFilter));
+        }
+        return builder.build();
     }
 
     private static RowGroupIndex toRowGroupIndex(RowIndexEntry rowIndexEntry)
