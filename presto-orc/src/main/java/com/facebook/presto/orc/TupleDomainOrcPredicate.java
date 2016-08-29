@@ -31,7 +31,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import org.apache.hive.common.util.BloomFilter;
 
 import java.util.Collection;
 import java.util.List;
@@ -119,7 +118,11 @@ public class TupleDomainOrcPredicate<C>
                 }
             }
             for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
-//                BloomFilter.BitSet bs = new BloomFilter.BitSet(rowGroupBloomfilter.getBloomfilter().getBitsetCount());
+//                BitSet bs = new BitSet(rowGroupBloomfilter.getBloomfilter().getBitsetCount());
+//                for (int i = 0; i < rowGroupBloomfilter.getBloomfilter().getBitsetCount(); i++) {
+//                    bs.set(i);
+//                }
+//                BloomFilter bf = new BloomFilter();
                 // if bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
             }
         }
