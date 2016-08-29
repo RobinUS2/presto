@@ -15,6 +15,7 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
+import com.facebook.presto.orc.metadata.HiveBloomFilter;
 import com.facebook.presto.orc.metadata.RangeStatistics;
 import com.facebook.presto.orc.metadata.RowGroupBloomfilter;
 import com.facebook.presto.spi.predicate.Domain;
@@ -31,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
+import org.apache.hive.common.util.BloomFilter;
 
 import java.util.Collection;
 import java.util.List;
@@ -118,14 +120,12 @@ public class TupleDomainOrcPredicate<C>
                 }
             }
             for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
-//                BitSet bs = new BitSet(rowGroupBloomfilter.getBloomfilter().getBitsetCount());
-//                for (int i = 0; i < rowGroupBloomfilter.getBloomfilter().getBitsetCount(); i++) {
-//                    bs.set(i);
-//                }
-//                BloomFilter bf = new BloomFilter();
-                // if bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
+                BloomFilter bf = new HiveBloomFilter(rowGroupBloomfilter.getBloomfilter().getBitsetList(), rowGroupBloomfilter.getBloomfilter().getBitsetCount(), rowGroupBloomfilter.getBloomfilter().getNumHashFunctions());
+                log.info("bf = " + bf.toString());
+                // @todo if bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
             }
         }
+        // @todo if none of the bloomfilters matched we should return a false here
 
         return true;
     }
