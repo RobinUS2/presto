@@ -48,7 +48,10 @@ import io.airlift.slice.Slices;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -359,14 +362,14 @@ public class StripeReader
                 List<RowGroupBloomfilter> bloomfilters = bloomfilterIndexes.get(stream.getColumn());
                 List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(inputStream);
                 if (!bloomfilters.isEmpty()) {
-                    int i = 0;
+                    ImmutableList.Builder<RowGroupIndex> tmpRowGroupIndexes = ImmutableList.builder();
                     for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
                         log.info("RowGroupIndex " + rowGroupIndex.getPositions() + " positions " + bloomfilterIndexes.size() + " bfs"); // @todo remove
                         ColumnStatistics columnStatisticsNoBf = rowGroupIndex.getColumnStatistics();
                         ColumnStatistics columnStatistics = new ColumnStatistics(columnStatisticsNoBf, bloomfilters);
-                        rowGroupIndexes.set(i, new RowGroupIndex(rowGroupIndex.getPositions(), columnStatistics));
-                        i++;
+                        tmpRowGroupIndexes.add(new RowGroupIndex(rowGroupIndex.getPositions(), columnStatistics));
                     }
+                    rowGroupIndexes = tmpRowGroupIndexes.build();
                 }
                 columnIndexes.put(stream.getColumn(), rowGroupIndexes);
             }
