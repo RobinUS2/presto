@@ -13,6 +13,8 @@
  */
 package com.facebook.presto.orc.metadata;
 
+import java.util.List;
+
 public class ColumnStatistics
 {
     private final Long numberOfValues;
@@ -22,8 +24,9 @@ public class ColumnStatistics
     private final StringStatistics stringStatistics;
     private final DateStatistics dateStatistics;
     private final DecimalStatistics decimalStatistics;
-    // bloom filter here
+    private final List<RowGroupBloomfilter> bloomfilters;
 
+    // Constructor used for stats without bloom filters
     public ColumnStatistics(
             Long numberOfValues,
             BooleanStatistics booleanStatistics,
@@ -33,6 +36,27 @@ public class ColumnStatistics
             DateStatistics dateStatistics,
             DecimalStatistics decimalStatistics)
     {
+        this(numberOfValues, booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, null);
+    }
+
+    // Constructor used for "adding" bloom filters to this statistics object
+    public ColumnStatistics(
+            ColumnStatistics columnStatistics,
+            List<RowGroupBloomfilter> bloomfilters)
+    {
+        this(columnStatistics.getNumberOfValues(), columnStatistics.getBooleanStatistics(), columnStatistics.getIntegerStatistics(), columnStatistics.getDoubleStatistics(), columnStatistics.getStringStatistics(), columnStatistics.getDateStatistics(), columnStatistics.getDecimalStatistics(), bloomfilters);
+    }
+
+    public ColumnStatistics(
+            Long numberOfValues,
+            BooleanStatistics booleanStatistics,
+            IntegerStatistics integerStatistics,
+            DoubleStatistics doubleStatistics,
+            StringStatistics stringStatistics,
+            DateStatistics dateStatistics,
+            DecimalStatistics decimalStatistics,
+            List<RowGroupBloomfilter> bloomfilters)
+    {
         this.numberOfValues = numberOfValues;
         this.booleanStatistics = booleanStatistics;
         this.integerStatistics = integerStatistics;
@@ -40,6 +64,7 @@ public class ColumnStatistics
         this.stringStatistics = stringStatistics;
         this.dateStatistics = dateStatistics;
         this.decimalStatistics = decimalStatistics;
+        this.bloomfilters = bloomfilters;
     }
 
     public boolean hasNumberOfValues()
@@ -80,5 +105,10 @@ public class ColumnStatistics
     public DecimalStatistics getDecimalStatistics()
     {
         return decimalStatistics;
+    }
+
+    public List<RowGroupBloomfilter> getBloomfilters()
+    {
+        return bloomfilters;
     }
 }

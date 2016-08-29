@@ -16,7 +16,9 @@ package com.facebook.presto.orc;
 import com.facebook.presto.orc.metadata.BooleanStatistics;
 import com.facebook.presto.orc.metadata.ColumnStatistics;
 import com.facebook.presto.orc.metadata.RangeStatistics;
+import com.facebook.presto.orc.metadata.RowGroupBloomfilter;
 import com.facebook.presto.spi.predicate.Domain;
+import com.facebook.presto.spi.predicate.EquatableValueSet;
 import com.facebook.presto.spi.predicate.Range;
 import com.facebook.presto.spi.predicate.TupleDomain;
 import com.facebook.presto.spi.predicate.ValueSet;
@@ -27,10 +29,13 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
@@ -46,6 +51,8 @@ public class TupleDomainOrcPredicate<C>
 {
     private final TupleDomain<C> effectivePredicate;
     private final List<ColumnReference<C>> columnReferences;
+
+    private static final Logger log = Logger.get(TupleDomainOrcPredicate.class);
 
     public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
     {
@@ -80,7 +87,40 @@ public class TupleDomainOrcPredicate<C>
             return false;
         }
 
-        // @todo check bloom filter here
+        // check bloomfilters (more expensive so separated from the domain check above)
+        for (ColumnReference<C> columnReference : columnReferences) {
+            ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
+            if (columnStatistics == null) {
+                continue;
+            }
+
+            List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
+            if (bloomfilters == null || bloomfilters.isEmpty()) {
+                continue;
+            }
+
+            // @todo refactor logic
+            Optional<Map<C, Domain>> domains1 = effectivePredicate.getDomains();
+            if (domains1.isPresent()) {
+                Map<C, Domain> cDomainMap = domains1.get();
+                if (cDomainMap.containsKey(columnReference.getColumn())) {
+                    Domain domain = cDomainMap.get(columnReference.getColumn());
+                    ValueSet values = domain.getValues();
+                    if (values instanceof EquatableValueSet) {
+                        EquatableValueSet eqValues = ((EquatableValueSet) values);
+                        if (eqValues.isWhiteList()) {
+                            Collection<Object> values1 = values.getDiscreteValues().getValues();
+                            for (Object o : values1) {
+                                log.info("Equatable value set value=" + String.valueOf(o));
+                            }
+                        }
+                    }
+                }
+            }
+            for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
+                // if bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
+            }
+        }
 
         return true;
     }

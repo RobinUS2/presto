@@ -155,7 +155,7 @@ public class OrcMetadataReader
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
         OrcProto.BloomFilter bf = OrcProto.BloomFilter.parseFrom(input);
-        // @todo actually return this in a wrapped RowGroupBloomfilter
+        // @todo reduce log level / remove
         log.info("Found serialized bloomfilter of size " + bf.getSerializedSize());
         return ImmutableList.of(new RowGroupBloomfilter(bf));
     }

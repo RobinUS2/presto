@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.primitives.Ints;
+import io.airlift.log.Logger;
 import io.airlift.slice.FixedLengthSliceInput;
 import io.airlift.slice.Slices;
 
@@ -77,6 +78,8 @@ public class StripeReader
     private final int rowsInRowGroup;
     private final OrcPredicate predicate;
     private final MetadataReader metadataReader;
+
+    private static final Logger log = Logger.get(StripeReader.class);
 
     public StripeReader(OrcDataSource orcDataSource,
             CompressionKind compressionKind,
@@ -127,14 +130,14 @@ public class StripeReader
             // read the file regions
             Map<StreamId, OrcInputStream> streamsData = readDiskRanges(stripe.getOffset(), diskRanges, systemMemoryUsage);
 
-            // read the row index for each column
-            Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData);
-
             // read the bloomfilter for each column
             Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes = readBloomfilterIndexes(streams, streamsData);
 
+            // read the row index for each column
+            Map<Integer, List<RowGroupIndex>> columnIndexes = readColumnIndexes(streams, streamsData, bloomfilterIndexes);
+
             // select the row groups matching the tuple domain
-            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes, bloomfilterIndexes);
+            Set<Integer> selectedRowGroups = selectRowGroups(stripe, columnIndexes);
 
             // if all row groups are skipped, return null
             if (selectedRowGroups.isEmpty()) {
@@ -345,7 +348,7 @@ public class StripeReader
         return bfIndexes.build();
     }
 
-    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData)
+    private Map<Integer, List<RowGroupIndex>> readColumnIndexes(Map<StreamId, Stream> streams, Map<StreamId, OrcInputStream> streamsData, Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes)
             throws IOException
     {
         ImmutableMap.Builder<Integer, List<RowGroupIndex>> columnIndexes = ImmutableMap.builder();
@@ -353,14 +356,25 @@ public class StripeReader
             Stream stream = entry.getValue();
             if (stream.getStreamKind() == ROW_INDEX) {
                 OrcInputStream inputStream = streamsData.get(entry.getKey());
-                columnIndexes.put(stream.getColumn(), metadataReader.readRowIndexes(inputStream));
+                List<RowGroupBloomfilter> bloomfilters = bloomfilterIndexes.get(stream.getColumn());
+                List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(inputStream);
+                if (!bloomfilters.isEmpty()) {
+                    int i = 0;
+                    for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
+                        log.info("RowGroupIndex " + rowGroupIndex.getPositions() + " positions " + bloomfilterIndexes.size() + " bfs"); // @todo remove
+                        ColumnStatistics columnStatisticsNoBf = rowGroupIndex.getColumnStatistics();
+                        ColumnStatistics columnStatistics = new ColumnStatistics(columnStatisticsNoBf, bloomfilters);
+                        rowGroupIndexes.set(i, new RowGroupIndex(rowGroupIndex.getPositions(), columnStatistics));
+                        i++;
+                    }
+                }
+                columnIndexes.put(stream.getColumn(), rowGroupIndexes);
             }
         }
         return columnIndexes.build();
     }
 
-    // This has something todo with selecting row groups in a stripe, use bloomfilter here? push bloom filter code into the predicate?
-    private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes, Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes)
+    private Set<Integer> selectRowGroups(StripeInformation stripe,  Map<Integer, List<RowGroupIndex>> columnIndexes)
             throws IOException
     {
         int rowsInStripe = Ints.checkedCast(stripe.getNumberOfRows());
@@ -370,7 +384,7 @@ public class StripeReader
         int remainingRows = rowsInStripe;
         for (int rowGroup = 0; rowGroup < groupsInStripe; ++rowGroup) {
             int rows = Math.min(remainingRows, rowsInRowGroup);
-            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, bloomfilterIndexes, rowGroup);
+            Map<Integer, ColumnStatistics> statistics = getRowGroupStatistics(types.get(0), columnIndexes, rowGroup);
             if (predicate.matches(rows, statistics)) {
                 selectedRowGroups.add(rowGroup);
             }
@@ -379,7 +393,7 @@ public class StripeReader
         return selectedRowGroups.build();
     }
 
-    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<Integer, List<RowGroupIndex>> columnIndexes, Map<Integer, List<RowGroupBloomfilter>> bloomfilterIndexes, int rowGroup)
+    private static Map<Integer, ColumnStatistics> getRowGroupStatistics(OrcType rootStructType, Map<Integer, List<RowGroupIndex>> columnIndexes, int rowGroup)
     {
         requireNonNull(rootStructType, "rootStructType is null");
         checkArgument(rootStructType.getOrcTypeKind() == OrcTypeKind.STRUCT);
