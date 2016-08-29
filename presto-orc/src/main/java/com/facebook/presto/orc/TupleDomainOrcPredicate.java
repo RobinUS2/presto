@@ -99,6 +99,13 @@ public class TupleDomainOrcPredicate<C>
 
         // check bloomfilters (more expensive so separated from the domain check above)
         boolean allPassedBloomfilters = true;
+
+        // we need to have filters in order to say we checked all
+        if (columnReferences.isEmpty()) {
+            allPassedBloomfilters = false;
+        }
+
+        // check bloomfilters per column
         for (ColumnReference<C> columnReference : columnReferences) {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
