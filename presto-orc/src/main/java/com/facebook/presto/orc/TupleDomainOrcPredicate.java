@@ -188,7 +188,7 @@ public class TupleDomainOrcPredicate<C>
 
         if (allPassedBloomfilters) {
             // none of the bloomfilters caused a "hit" meaning we should not read
-            log.info("Not reading, didn't match any of the bloom filters, data is not here");
+            log.debug("Not reading, didn't match any of the bloom filters, data is not here");
             return false;
         }
 
@@ -250,9 +250,6 @@ public class TupleDomainOrcPredicate<C>
         if (result == TruthValue.YES_NO_NULL && !hasNull) {
             result = TruthValue.YES_NO;
         }
-
-        // @todo reduce to debug or remove
-        log.info("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
 
         return result;
     }
