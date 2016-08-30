@@ -111,14 +111,14 @@ public class TupleDomainOrcPredicate<C>
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
                 allPassedBloomfilters = false;
-                log.info("No column stats");
+                log.info("No column stats for " + columnReference.toString());
                 continue;
             }
 
             List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
             if (bloomfilters == null || bloomfilters.isEmpty()) {
                 allPassedBloomfilters = false;
-                log.info("No bloomfilters");
+                log.info("No bloomfilters for " + columnReference.toString());
                 continue;
             }
 
@@ -162,7 +162,7 @@ public class TupleDomainOrcPredicate<C>
                                 BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
                                 log.info("bf = " + bloomfilter.toString());
                                 log.info("bitset = " + Arrays.toString(bloomfilter.getBitSet()));
-                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, false); // @todo replace false with hasnull from orc column stats
+                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, columnStatistics.getHasNull());
                                 if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
                                     // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
                                     return true;
