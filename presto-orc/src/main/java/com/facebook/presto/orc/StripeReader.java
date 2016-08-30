@@ -360,11 +360,14 @@ public class StripeReader
                 List<RowGroupIndex> rowGroupIndexes = metadataReader.readRowIndexes(inputStream);
                 if (bloomfilters != null && !bloomfilters.isEmpty()) {
                     ImmutableList.Builder<RowGroupIndex> tmpRowGroupIndexes = ImmutableList.builder();
+                    int i = 0;
                     for (RowGroupIndex rowGroupIndex : rowGroupIndexes) {
 //                        log.debug("RowGroupIndex " + rowGroupIndex.getPositions() + " positions " + bloomfilters.size() + " bfs"); // @todo remove
                         ColumnStatistics columnStatisticsNoBf = rowGroupIndex.getColumnStatistics();
-                        ColumnStatistics columnStatistics = new ColumnStatistics(columnStatisticsNoBf, bloomfilters);
+                        // @todo check if we should add only one bloom filter per rowgroupindex? seems we should match the index instead of add all
+                        ColumnStatistics columnStatistics = new ColumnStatistics(columnStatisticsNoBf, ImmutableList.of(bloomfilters.get(i)));
                         tmpRowGroupIndexes.add(new RowGroupIndex(rowGroupIndex.getPositions(), columnStatistics));
+                        i++;
                     }
                     rowGroupIndexes = tmpRowGroupIndexes.build();
                 }

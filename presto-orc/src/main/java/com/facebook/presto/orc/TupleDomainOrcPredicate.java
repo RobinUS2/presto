@@ -188,7 +188,7 @@ public class TupleDomainOrcPredicate<C>
 
         if (allPassedBloomfilters) {
             // none of the bloomfilters caused a "hit" meaning we should not read
-            log.debug("Not reading, didn't match any of the bloom filters, data is not here");
+            log.info("Not reading, didn't match any of the bloom filters, data is not here");
             return false;
         }
 
@@ -252,7 +252,7 @@ public class TupleDomainOrcPredicate<C>
         }
 
         // @todo reduce to debug or remove
-//        log.info("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
+        log.info("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
 
         return result;
     }
