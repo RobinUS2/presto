@@ -208,6 +208,12 @@ public class TupleDomainOrcPredicate<C>
                 result = TruthValue.YES_NO_NULL;
             }
         }
+        else if (predObj instanceof Slice) {
+            Slice slice = (Slice) predObj;
+            if (bf.testString(slice.toStringUtf8())) {
+                result = TruthValue.YES_NO_NULL;
+            }
+        }
         else if (predObj instanceof String ||
 //                predObj instanceof Text ||
 //                predObj instanceof HiveDecimalWritable ||
@@ -243,7 +249,8 @@ public class TupleDomainOrcPredicate<C>
             result = TruthValue.YES_NO;
         }
 
-        log.debug("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
+        // @todo reduce to debug or remove
+        log.info("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
 
         return result;
     }
