@@ -25,8 +25,9 @@ public class ColumnStatistics
     private final DateStatistics dateStatistics;
     private final DecimalStatistics decimalStatistics;
     private final List<RowGroupBloomfilter> bloomfilters;
+    private final boolean hasNull;
 
-    // Constructor used for stats without bloom filters
+    // Constructor used for stats without bloom filters and without hasnull statistics
     public ColumnStatistics(
             Long numberOfValues,
             BooleanStatistics booleanStatistics,
@@ -36,7 +37,21 @@ public class ColumnStatistics
             DateStatistics dateStatistics,
             DecimalStatistics decimalStatistics)
     {
-        this(numberOfValues, booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, null);
+        this(numberOfValues, booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, true, null);
+    }
+
+    // Constructor used for stats without bloom filters
+    public ColumnStatistics(
+            Long numberOfValues,
+            BooleanStatistics booleanStatistics,
+            IntegerStatistics integerStatistics,
+            DoubleStatistics doubleStatistics,
+            StringStatistics stringStatistics,
+            DateStatistics dateStatistics,
+            DecimalStatistics decimalStatistics,
+            boolean hasNull)
+    {
+        this(numberOfValues, booleanStatistics, integerStatistics, doubleStatistics, stringStatistics, dateStatistics, decimalStatistics, hasNull, null);
     }
 
     // Constructor used for "adding" bloom filters to this statistics object
@@ -44,7 +59,7 @@ public class ColumnStatistics
             ColumnStatistics columnStatistics,
             List<RowGroupBloomfilter> bloomfilters)
     {
-        this(columnStatistics.getNumberOfValues(), columnStatistics.getBooleanStatistics(), columnStatistics.getIntegerStatistics(), columnStatistics.getDoubleStatistics(), columnStatistics.getStringStatistics(), columnStatistics.getDateStatistics(), columnStatistics.getDecimalStatistics(), bloomfilters);
+        this(columnStatistics.getNumberOfValues(), columnStatistics.getBooleanStatistics(), columnStatistics.getIntegerStatistics(), columnStatistics.getDoubleStatistics(), columnStatistics.getStringStatistics(), columnStatistics.getDateStatistics(), columnStatistics.getDecimalStatistics(), columnStatistics.getHasNull(), bloomfilters);
     }
 
     public ColumnStatistics(
@@ -55,6 +70,7 @@ public class ColumnStatistics
             StringStatistics stringStatistics,
             DateStatistics dateStatistics,
             DecimalStatistics decimalStatistics,
+            boolean hasNull,
             List<RowGroupBloomfilter> bloomfilters)
     {
         this.numberOfValues = numberOfValues;
@@ -65,6 +81,7 @@ public class ColumnStatistics
         this.dateStatistics = dateStatistics;
         this.decimalStatistics = decimalStatistics;
         this.bloomfilters = bloomfilters;
+        this.hasNull = hasNull;
     }
 
     public boolean hasNumberOfValues()
@@ -110,5 +127,10 @@ public class ColumnStatistics
     public List<RowGroupBloomfilter> getBloomfilters()
     {
         return bloomfilters;
+    }
+
+    public boolean getHasNull()
+    {
+        return hasNull;
     }
 }

@@ -42,6 +42,7 @@ import java.math.BigDecimal;
 //import java.sql.Date;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -160,7 +161,8 @@ public class TupleDomainOrcPredicate<C>
                             for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
                                 BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
                                 log.info("bf = " + bloomfilter.toString());
-                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, true); // @todo replace false with hasnull from orc column stats
+                                log.info("bitset = " + Arrays.toString(bloomfilter.getBitSet()));
+                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, false); // @todo replace false with hasnull from orc column stats
                                 if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
                                     // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
                                     return true;

@@ -181,6 +181,9 @@ public class OrcMetadataReader
 
     private static ColumnStatistics toColumnStatistics(OrcProto.ColumnStatistics statistics, boolean isRowGroup)
     {
+        // is this column nullable?
+        boolean hasNull = !statistics.hasHasNull() || statistics.getHasNull();
+
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 toBooleanStatistics(statistics.getBucketStatistics()),
@@ -188,7 +191,8 @@ public class OrcMetadataReader
                 toDoubleStatistics(statistics.getDoubleStatistics()),
                 toStringStatistics(statistics.getStringStatistics(), isRowGroup),
                 toDateStatistics(statistics.getDateStatistics(), isRowGroup),
-                toDecimalStatistics(statistics.getDecimalStatistics()));
+                toDecimalStatistics(statistics.getDecimalStatistics()),
+                hasNull);
     }
 
     private static List<ColumnStatistics> toColumnStatistics(List<OrcProto.ColumnStatistics> columnStatistics, final boolean isRowGroup)
