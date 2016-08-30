@@ -19,12 +19,11 @@ import org.apache.hive.common.util.BloomFilter;
 public final class RowGroupBloomfilter
 {
     private final OrcProto.BloomFilter orcBf;
-    private final HiveBloomFilter bf;
+    private HiveBloomFilter bf;
 
-    public RowGroupBloomfilter(OrcProto.BloomFilter bf)
+    public RowGroupBloomfilter(OrcProto.BloomFilter orcBf)
     {
-        this.orcBf = bf;
-        this.bf = new HiveBloomFilter(getOrcBloomfilter().getBitsetList(), getOrcBloomfilter().getBitsetCount() * 64, getOrcBloomfilter().getNumHashFunctions());
+        this.orcBf = orcBf;
     }
 
     public OrcProto.BloomFilter getOrcBloomfilter()
@@ -34,6 +33,10 @@ public final class RowGroupBloomfilter
 
     public BloomFilter getBloomfilter()
     {
+        if (bf == null) {
+            // lazy initialise the bloomfilter, we can only use it in a limited set of scenarios
+            bf = new HiveBloomFilter(getOrcBloomfilter().getBitsetList(), getOrcBloomfilter().getBitsetCount() * 64, getOrcBloomfilter().getNumHashFunctions());
+        }
         return bf;
     }
 }
