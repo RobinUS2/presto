@@ -11,13 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution.resourceGroups;
+package com.facebook.presto.spi.resourceGroups;
 
-import com.facebook.presto.sql.tree.Statement;
-
-import java.util.Optional;
-
-public interface ResourceGroupSelector
+public enum SchedulingPolicy
 {
-    Optional<ResourceGroupId> match(Statement statement, SelectionContext context);
+    FAIR,
+    WEIGHTED,
+    QUERY_PRIORITY
 }

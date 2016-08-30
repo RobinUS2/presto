@@ -145,6 +145,7 @@ import static com.facebook.presto.hive.util.Types.checkType;
 import static com.facebook.presto.spi.StandardErrorCode.NOT_SUPPORTED;
 import static com.facebook.presto.spi.type.BigintType.BIGINT;
 import static com.facebook.presto.spi.type.BooleanType.BOOLEAN;
+import static com.facebook.presto.spi.type.Chars.isCharType;
 import static com.facebook.presto.spi.type.DateType.DATE;
 import static com.facebook.presto.spi.type.DoubleType.DOUBLE;
 import static com.facebook.presto.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -1652,9 +1653,10 @@ public abstract class AbstractTestHiveClient
         MaterializedResult result = readTable(tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
         assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_DATA.getMaterializedRows());
 
-        // verify the node version in table
+        // verify the node version and query ID in table
         Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
         assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+        assertEquals(table.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), session.getQueryId());
     }
 
     protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns)
@@ -1689,6 +1691,10 @@ public abstract class AbstractTestHiveClient
         // verify table format
         Table table = getMetastoreClient(tableName.getSchemaName()).getTable(tableName.getSchemaName(), tableName.getTableName()).get();
         assertEquals(table.getStorage().getStorageFormat().getInputFormat(), storageFormat.getInputFormat());
+
+        // verify the node version and query ID
+        assertEquals(table.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+        assertEquals(table.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), session.getQueryId());
 
         // verify the table is empty
         List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
@@ -1860,11 +1866,12 @@ public abstract class AbstractTestHiveClient
         // creating the table
         doCreateEmptyTable(tableName, storageFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
 
+        ConnectorSession session = newSession();
         ConnectorMetadata metadata = newMetadata();
         ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
         // insert the data
-        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, newSession());
+        insertData(tableHandle, CREATE_TABLE_PARTITIONED_DATA, session);
 
         // verify partitions were created
         List<String> partitionNames = getMetastoreClient(tableName.getSchemaName()).getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
@@ -1879,10 +1886,11 @@ public abstract class AbstractTestHiveClient
         for (String partitionName : partitionNames) {
             Partition partition = partitions.get(partitionName).get();
             assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_VERSION_NAME), TEST_SERVER_INFO.getVersion());
+            assertEquals(partition.getParameters().get(HiveMetadata.PRESTO_QUERY_ID_NAME), session.getQueryId());
         }
 
         // load the new table
-        ConnectorSession session = newSession();
+        session = newSession();
         metadata = newMetadata();
         List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
 
@@ -2282,19 +2290,17 @@ public abstract class AbstractTestHiveClient
                     }
                 }
 
-                /* TODO: enable this test when the CHAR type is supported
-                // CHAR(25)
+                //CHAR(25)
                 index = columnIndex.get("t_char");
                 if (index != null) {
+                    value = row.getField(index);
                     if ((rowNumber % 41) == 0) {
-                        assertTrue(cursor.isNull(index));
+                        assertNull(value);
                     }
                     else {
-                        String stringValue = cursor.getSlice(index).toStringUtf8();
-                        assertEquals(stringValue, ((rowNumber % 41) == 1) ? "" : "test char");
+                        assertEquals(value, (rowNumber % 41) == 1 ? "                         " : "test char                ");
                     }
                 }
-                */
 
                 // MAP<STRING, STRING>
                 index = columnIndex.get("t_map");
@@ -2535,6 +2541,9 @@ public abstract class AbstractTestHiveClient
                     assertInstanceOf(value, Double.class);
                 }
                 else if (isVarcharType(column.getType())) {
+                    assertInstanceOf(value, String.class);
+                }
+                else if (isCharType(column.getType())) {
                     assertInstanceOf(value, String.class);
                 }
                 else if (VARBINARY.equals(column.getType())) {

@@ -13,7 +13,9 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.sql.tree.Statement;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupId;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -35,7 +37,7 @@ public class StaticSelector
     }
 
     @Override
-    public Optional<ResourceGroupId> match(Statement statement, SelectionContext context)
+    public Optional<ResourceGroupId> match(SelectionContext context)
     {
         if (userRegex.isPresent() && !userRegex.get().matcher(context.getUser()).matches()) {
             return Optional.empty();

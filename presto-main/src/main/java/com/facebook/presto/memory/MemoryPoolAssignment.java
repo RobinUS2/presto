@@ -13,7 +13,8 @@
  */
 package com.facebook.presto.memory;
 
-import com.facebook.presto.execution.QueryId;
+import com.facebook.presto.spi.QueryId;
+import com.facebook.presto.spi.memory.MemoryPoolId;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.MoreObjects;

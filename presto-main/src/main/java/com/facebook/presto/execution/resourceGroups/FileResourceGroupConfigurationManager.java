@@ -13,8 +13,12 @@
  */
 package com.facebook.presto.execution.resourceGroups;
 
-import com.facebook.presto.execution.resourceGroups.ResourceGroup.SubGroupSchedulingPolicy;
-import com.facebook.presto.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.memory.ClusterMemoryPoolManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroup;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupConfigurationManager;
+import com.facebook.presto.spi.resourceGroups.ResourceGroupSelector;
+import com.facebook.presto.spi.resourceGroups.SchedulingPolicy;
+import com.facebook.presto.spi.resourceGroups.SelectionContext;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Throwables;
@@ -25,7 +29,6 @@ import io.airlift.units.Duration;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
-import javax.inject.Provider;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -49,14 +52,14 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class FileResourceGroupConfigurationManager
-        implements ResourceGroupConfigurationManager, Provider<List<? extends ResourceGroupSelector>>
+        implements ResourceGroupConfigurationManager
 {
     private final List<ResourceGroupSpec> rootGroups;
-    private final List<? extends ResourceGroupSelector> selectors;
+    private final List<ResourceGroupSelector> selectors;
     private final Optional<Duration> cpuQuotaPeriodMillis;
 
     @GuardedBy("generalPoolMemoryFraction")
-    private final Map<ConfigurableResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
+    private final Map<ResourceGroup, Double> generalPoolMemoryFraction = new HashMap<>();
     @GuardedBy("generalPoolMemoryFraction")
     private long generalPoolBytes;
 
@@ -97,7 +100,7 @@ public class FileResourceGroupConfigurationManager
 
         memoryPoolManager.addChangeListener(GENERAL_POOL, poolInfo -> {
             synchronized (generalPoolMemoryFraction) {
-                for (Map.Entry<ConfigurableResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
+                for (Map.Entry<ResourceGroup, Double> entry : generalPoolMemoryFraction.entrySet()) {
                     double bytes = poolInfo.getMaxBytes() * entry.getValue();
                     entry.getKey().setSoftMemoryLimit(new DataSize(bytes, BYTE));
                 }
@@ -107,7 +110,7 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public void configure(ConfigurableResourceGroup group, SelectionContext context)
+    public void configure(ResourceGroup group, SelectionContext context)
     {
         List<ResourceGroupSpec> candidates = rootGroups;
         List<String> segments = group.getId().getSegments();
@@ -181,7 +184,7 @@ public class FileResourceGroupConfigurationManager
     }
 
     @Override
-    public List<? extends ResourceGroupSelector> get()
+    public List<ResourceGroupSelector> getSelectors()
     {
         return selectors;
     }
@@ -233,7 +236,7 @@ public class FileResourceGroupConfigurationManager
         private final Optional<Double> softMemoryLimitFraction;
         private final int maxQueued;
         private final int maxRunning;
-        private final Optional<SubGroupSchedulingPolicy> schedulingPolicy;
+        private final Optional<SchedulingPolicy> schedulingPolicy;
         private final Optional<Integer> schedulingWeight;
         private final List<ResourceGroupSpec> subGroups;
         private final Optional<Boolean> jmxExport;
@@ -261,7 +264,7 @@ public class FileResourceGroupConfigurationManager
             this.maxQueued = maxQueued;
             checkArgument(maxRunning >= 0, "maxRunning is negative");
             this.maxRunning = maxRunning;
-            this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SubGroupSchedulingPolicy.valueOf(value.toUpperCase()));
+            this.schedulingPolicy = requireNonNull(schedulingPolicy, "schedulingPolicy is null").map(value -> SchedulingPolicy.valueOf(value.toUpperCase()));
             this.schedulingWeight = requireNonNull(schedulingWeight, "schedulingWeight is null");
             requireNonNull(softMemoryLimit, "softMemoryLimit is null");
             Optional<DataSize> absoluteSize;
@@ -305,7 +308,7 @@ public class FileResourceGroupConfigurationManager
             return maxRunning;
         }
 
-        public Optional<SubGroupSchedulingPolicy> getSchedulingPolicy()
+        public Optional<SchedulingPolicy> getSchedulingPolicy()
         {
             return schedulingPolicy;
         }
