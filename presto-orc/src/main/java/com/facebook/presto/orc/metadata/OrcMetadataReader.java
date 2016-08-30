@@ -158,7 +158,7 @@ public class OrcMetadataReader
         List<OrcProto.BloomFilter> bloomFilterList = bf.getBloomFilterList();
         ImmutableList.Builder<RowGroupBloomfilter> builder = ImmutableList.<RowGroupBloomfilter>builder();
         for (OrcProto.BloomFilter orcBloomFilter : bloomFilterList) {
-            log.info("Found serialized orc bloomfilter of size " + orcBloomFilter.getSerializedSize() + " numfunctions=" + orcBloomFilter.getNumHashFunctions() + " bscount=" + orcBloomFilter.getBitsetCount() + " init=" + orcBloomFilter.isInitialized());
+//            log.info("Found serialized orc bloomfilter of size " + orcBloomFilter.getSerializedSize() + " numfunctions=" + orcBloomFilter.getNumHashFunctions() + " bscount=" + orcBloomFilter.getBitsetCount() + " init=" + orcBloomFilter.isInitialized());
             builder.add(new RowGroupBloomfilter(orcBloomFilter));
         }
         return builder.build();
