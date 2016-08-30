@@ -252,7 +252,7 @@ public class TupleDomainOrcPredicate<C>
         }
 
         // @todo reduce to debug or remove
-        log.info("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
+//        log.info("Bloom filter evaluation: " + String.valueOf(predObj) + "=" + result.toString());
 
         return result;
     }
