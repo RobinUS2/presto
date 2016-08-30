@@ -24,7 +24,7 @@ public final class RowGroupBloomfilter
     public RowGroupBloomfilter(OrcProto.BloomFilter bf)
     {
         this.orcBf = bf;
-        this.bf = new HiveBloomFilter(getOrcBloomfilter().getBitsetList(), getOrcBloomfilter().getBitsetCount(), getOrcBloomfilter().getNumHashFunctions());
+        this.bf = new HiveBloomFilter(getOrcBloomfilter().getBitsetList(), getOrcBloomfilter().getBitsetCount() * 64, getOrcBloomfilter().getNumHashFunctions());
     }
 
     public OrcProto.BloomFilter getOrcBloomfilter()

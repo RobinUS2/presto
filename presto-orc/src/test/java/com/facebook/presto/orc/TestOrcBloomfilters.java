@@ -21,10 +21,8 @@ import org.apache.hive.common.util.BloomFilter;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
@@ -41,6 +39,7 @@ public class TestOrcBloomfilters
             throws Exception
     {
         BloomFilter bf = new BloomFilter(1_000_000L, 0.05D);
+        System.out.println(bf.toString());
 
         // String
         bf.addString(TEST_STRING);
@@ -116,6 +115,8 @@ public class TestOrcBloomfilters
 
         OrcProto.BloomFilter bloomFilterRead = bloomFilterList.get(0);
         System.out.println("bscountread=" + bloomFilterRead.getBitsetCount());
+
+        // Validate contents of ORC bloom filter bitset
         int i = 0;
         for (long l : bloomFilterRead.getBitsetList()) {
 //            System.out.println(l + " = " + bfWrite.getBitSet()[i]);
@@ -123,13 +124,31 @@ public class TestOrcBloomfilters
             i++;
         }
         RowGroupBloomfilter rowGroupBloomfilter = new RowGroupBloomfilter(bloomFilterRead);
+
+        // Validate contents of bloom filter bitset
+        i = 0;
+        for (long l : rowGroupBloomfilter.getBloomfilter().getBitSet()) {
+            System.out.println(l + " = " + bfWrite.getBitSet()[i]);
+            assertEquals(l, bfWrite.getBitSet()[i]);
+            i++;
+        }
+
         BloomFilter rowGroupBloomfilterBloomfilter = rowGroupBloomfilter.getBloomfilter();
+        assertEquals(bfWrite.toString(), rowGroupBloomfilterBloomfilter.toString());
+
         // hash functions
         assertEquals(bfWrite.getNumHashFunctions(), rowGroupBloomfilterBloomfilter.getNumHashFunctions());
         assertEquals(bfWrite.getNumHashFunctions(), bloomFilterRead.getNumHashFunctions());
+
         // bit size
         assertEquals(bfWrite.getBitSize(), rowGroupBloomfilterBloomfilter.getBitSize());
         assertEquals(bfWrite.getBitSet().length, bloomFilterRead.getBitsetCount());
+
+        // test contents
+        assertFalse(rowGroupBloomfilterBloomfilter.testString("robin"));
+        rowGroupBloomfilterBloomfilter.addString("robin");
+        assertTrue(rowGroupBloomfilterBloomfilter.testString("robin"));
+
         // test contents
         assertTrue(rowGroupBloomfilterBloomfilter.testString(TEST_STRING));
         assertFalse(rowGroupBloomfilterBloomfilter.testString(TEST_STRING + "bartosz"));
