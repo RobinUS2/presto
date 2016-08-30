@@ -13,13 +13,21 @@
  */
 package com.facebook.presto.orc;
 
+import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.metadata.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.RowGroupBloomfilter;
+import org.apache.hadoop.hive.ql.io.orc.OrcProto;
 import org.apache.hive.common.util.BloomFilter;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -63,5 +71,67 @@ public class TestOrcBloomfilters
         // Integer
         assertTrue(hiveBloomFilter.testLong(TEST_INTEGER));
         assertFalse(hiveBloomFilter.testLong(TEST_INTEGER + 1));
+    }
+
+    @Test
+    public void testOrcHiveBloomfilterSerde()
+            throws Exception
+    {
+        OrcProto.BloomFilterIndex bfi = OrcProto.BloomFilterIndex.getDefaultInstance();
+        OrcProto.BloomFilterIndex.Builder builder = bfi.toBuilder();
+
+        OrcProto.BloomFilter.Builder bfBuilder = OrcProto.BloomFilter.newBuilder();
+
+        // Write value
+        BloomFilter bfWrite = new BloomFilter(1000L, 0.05D);
+        assertFalse(bfWrite.testString(TEST_STRING));
+        assertFalse(bfWrite.testString(TEST_STRING + "not"));
+        bfWrite.addString(TEST_STRING);
+        assertTrue(bfWrite.testString(TEST_STRING));
+        assertFalse(bfWrite.testString(TEST_STRING + "not"));
+        for (long l : bfWrite.getBitSet()) {
+            bfBuilder.addBitset(l);
+//            System.out.println(l);
+        }
+        bfBuilder.setNumHashFunctions(bfWrite.getNumHashFunctions());
+        OrcProto.BloomFilter bf = bfBuilder.build();
+        assertTrue(bf.isInitialized());
+        System.out.println("numhash=" + bfWrite.getNumHashFunctions());
+        System.out.println("bitset count = " + bf.getBitsetCount());
+        builder.addBloomFilter(bf);
+
+        OrcProto.BloomFilterIndex index = builder.build();
+        assertTrue(index.isInitialized());
+        assertEquals(1, index.getBloomFilterCount());
+        ByteArrayOutputStream os = new ByteArrayOutputStream();
+        index.writeTo(os);
+        os.flush();
+        byte[] bytes = os.toByteArray();
+        System.out.println(Arrays.toString(bytes));
+
+        CodedInputStream input = CodedInputStream.newInstance(bytes);
+        OrcProto.BloomFilterIndex bfDeserIdx = OrcProto.BloomFilterIndex.parseFrom(input);
+        List<OrcProto.BloomFilter> bloomFilterList = bfDeserIdx.getBloomFilterList();
+        assertEquals(1, bloomFilterList.size());
+
+        OrcProto.BloomFilter bloomFilterRead = bloomFilterList.get(0);
+        System.out.println("bscountread=" + bloomFilterRead.getBitsetCount());
+        int i = 0;
+        for (long l : bloomFilterRead.getBitsetList()) {
+//            System.out.println(l + " = " + bfWrite.getBitSet()[i]);
+            assertEquals(l, bfWrite.getBitSet()[i]);
+            i++;
+        }
+        RowGroupBloomfilter rowGroupBloomfilter = new RowGroupBloomfilter(bloomFilterRead);
+        BloomFilter rowGroupBloomfilterBloomfilter = rowGroupBloomfilter.getBloomfilter();
+        // hash functions
+        assertEquals(bfWrite.getNumHashFunctions(), rowGroupBloomfilterBloomfilter.getNumHashFunctions());
+        assertEquals(bfWrite.getNumHashFunctions(), bloomFilterRead.getNumHashFunctions());
+        // bit size
+        assertEquals(bfWrite.getBitSize(), rowGroupBloomfilterBloomfilter.getBitSize());
+        assertEquals(bfWrite.getBitSet().length, bloomFilterRead.getBitsetCount());
+        // test contents
+        assertTrue(rowGroupBloomfilterBloomfilter.testString(TEST_STRING));
+        assertFalse(rowGroupBloomfilterBloomfilter.testString(TEST_STRING + "bartosz"));
     }
 }

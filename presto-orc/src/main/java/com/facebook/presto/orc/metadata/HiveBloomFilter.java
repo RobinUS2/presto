@@ -26,8 +26,8 @@ public class HiveBloomFilter extends BloomFilter
         for (int i = 0; i < bits.size(); i++) {
             copied[i] = bits.get(i);
         }
-        bitSet = new BitSet(copied);
+        this.bitSet = new BitSet(copied);
         this.numBits = numBits;
-        numHashFunctions = numFuncs;
+        this.numHashFunctions = numFuncs;
     }
 }
