@@ -11,24 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.facebook.presto.execution;
+package com.facebook.presto.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 
-import javax.annotation.concurrent.Immutable;
-
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static java.lang.String.format;
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
-@Immutable
-public class QueryId
+public final class QueryId
 {
     @JsonCreator
     public static QueryId valueOf(String queryId)
@@ -71,7 +68,7 @@ public class QueryId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final QueryId other = (QueryId) obj;
+        QueryId other = (QueryId) obj;
         return Objects.equals(this.id, other.id);
     }
 
@@ -79,9 +76,9 @@ public class QueryId
     // Id helper methods
     //
 
-    static final Pattern ID_PATTERN = Pattern.compile("[_a-z0-9]+");
+    private static final Pattern ID_PATTERN = Pattern.compile("[_a-z0-9]+");
 
-    static String validateId(String id)
+    public static String validateId(String id)
     {
         requireNonNull(id, "id is null");
         checkArgument(!id.isEmpty(), "id is empty");
@@ -89,13 +86,13 @@ public class QueryId
         return id;
     }
 
-    static List<String> parseDottedId(String id, int expectedParts, String name)
+    public static List<String> parseDottedId(String id, int expectedParts, String name)
     {
         requireNonNull(id, "id is null");
         checkArgument(expectedParts > 0, "expectedParts must be at least 1");
         requireNonNull(name, "name is null");
 
-        ImmutableList<String> ids = ImmutableList.copyOf(Splitter.on('.').split(id));
+        List<String> ids = unmodifiableList(Arrays.asList(id.split("\\.")));
         checkArgument(ids.size() == expectedParts, "Invalid %s %s", name, id);
 
         for (String part : ids) {
@@ -103,5 +100,12 @@ public class QueryId
             checkArgument(ID_PATTERN.matcher(part).matches(), "Invalid id %s", id);
         }
         return ids;
+    }
+
+    private static void checkArgument(boolean condition, String message, Object... messageArgs)
+    {
+        if (!condition) {
+            throw new IllegalArgumentException(format(message, messageArgs));
+        }
     }
 }
