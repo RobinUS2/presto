@@ -116,27 +116,26 @@ public class TupleDomainOrcPredicate<C>
 
         // fetch domains for effective predicate
         Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+        Optional<Map<C, Domain>> optionalStripeDomains = stripeDomain.getDomains();
 
         // we need the effective predicate domains for bloom filter analysis
-        if (!optionalEffectivePredicateDomains.isPresent()) {
+        if (!optionalEffectivePredicateDomains.isPresent() || !optionalStripeDomains.isPresent()) {
             // treat as failure: read
             return true;
         }
 
         // effective predicate domains
         Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
+        Map<C, Domain> stripDomains = optionalStripeDomains.get();
 
         // iterate column references
         for (ColumnReference<C> columnReference : columnReferences) {
             // is this part of a predicate?
-            boolean found = false;
-            for (Map.Entry<C, Domain> kv : effectivePredicateDomains.entrySet()) {
-                if (kv.getKey().equals(columnReference.getColumn())) {
-                    found = true;
-                    break;
-                }
+            if (!effectivePredicateDomains.containsKey(columnReference.getColumn())) {
+                continue;
             }
-            if (!found) {
+            // is this part of the stripe domain
+            if (!stripDomains.containsKey(columnReference.getColumn())) {
                 continue;
             }
 
