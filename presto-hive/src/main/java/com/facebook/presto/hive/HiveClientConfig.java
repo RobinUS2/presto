@@ -114,7 +114,7 @@ public class HiveClientConfig
     private boolean assumeCanonicalPartitionKeys;
 
     private boolean useOrcColumnNames;
-    private boolean useOrcBloomfilters;
+    private boolean useOrcBloomfilters = true;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
