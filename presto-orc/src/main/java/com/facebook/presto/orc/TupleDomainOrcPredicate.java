@@ -137,7 +137,6 @@ public class TupleDomainOrcPredicate<C>
                 }
             }
             if (!found) {
-                log.info("Skipping bf check for non-predicate " + columnReference.toString());
                 continue;
             }
 
