@@ -113,85 +113,83 @@ public class TupleDomainOrcPredicate<C>
 
         // we need to have filters in order to say we checked all
         if (columnReferences.isEmpty()) {
-            allPassedBloomfilters = false;
+            // treat as failure: read
+            return true;
         }
+
+        // fetch domains for effective predicate
+        Optional<Map<C, Domain>> optionalEffectivePredicateDomains = effectivePredicate.getDomains();
+
+        // we need the effective predicate domains for bloom filter analysis
+        if (!optionalEffectivePredicateDomains.isPresent()) {
+            // treat as failure: read
+            return true;
+        }
+
+        // effective predicate domains
+        Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
 
         // check bloomfilters per column
         for (ColumnReference<C> columnReference : columnReferences) {
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
-                allPassedBloomfilters = false;
-                continue;
+                // need column statistics, treat as failure: read
+                return true;
             }
 
             List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
             if (bloomfilters == null || bloomfilters.isEmpty()) {
-                allPassedBloomfilters = false;
-                continue;
+                // need bloom filters, treat as failure: read
+                return true;
             }
 
-            // @todo refactor logic
-            Optional<Map<C, Domain>> domains1 = effectivePredicate.getDomains();
-            if (domains1.isPresent()) {
-                Map<C, Domain> cDomainMap = domains1.get();
-                if (cDomainMap.containsKey(columnReference.getColumn())) {
-                    // extract values
-                    Domain domain = cDomainMap.get(columnReference.getColumn());
-                    ValueSet values = domain.getValues();
-                    Collection<Object> predicateValues = null;
-                    if (values instanceof EquatableValueSet) {
-                        EquatableValueSet eqValues = (EquatableValueSet) values;
-                        if (eqValues.isWhiteList()) {
-                            // we can only work with values we know, not excluded blacklists because other rows might contain the data we need
-                            predicateValues = values.getDiscreteValues().getValues();
-                        }
-                    }
-                    else if (values instanceof SortedRangeSet) {
-                        SortedRangeSet sortedRangeSet = (SortedRangeSet) values;
-                        // sorted range set is used for integer comparison (e.g. id = 123 ) where min and max is the same value
-                        if (sortedRangeSet.isSingleValue()) {
-                            predicateValues = new ArrayList<>();
-                            predicateValues.add(sortedRangeSet.getSingleValue());
-                        }
-                    }
+            if (!effectivePredicateDomains.containsKey(columnReference.getColumn())) {
+                // no domain found for column, treat as failure: read
+                return true;
+            }
 
-                    // run values against the bloomfilters
-                    if (predicateValues != null && !predicateValues.isEmpty()) {
-                        for (Object o : predicateValues) {
-                            for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
-                                BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
-
-                                TruthValue truthValue = checkInBloomFilter(bloomfilter, o, columnStatistics.getHasNull());
-                                if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
-                                    // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    else {
-                        // no values checked, treat as failure
-                        allPassedBloomfilters = false;
-                    }
-                }
-                else {
-                    // no domain found for column, treat as failure
-                    allPassedBloomfilters = false;
+            // extract values
+            Domain domain = effectivePredicateDomains.get(columnReference.getColumn());
+            ValueSet values = domain.getValues();
+            Collection<Object> predicateValues = null;
+            if (values instanceof EquatableValueSet) {
+                EquatableValueSet eqValues = (EquatableValueSet) values;
+                if (eqValues.isWhiteList()) {
+                    // we can only work with values we know, not excluded blacklists because other rows might contain the data we need
+                    predicateValues = values.getDiscreteValues().getValues();
                 }
             }
-            else {
-                allPassedBloomfilters = false;
+            else if (values instanceof SortedRangeSet) {
+                SortedRangeSet sortedRangeSet = (SortedRangeSet) values;
+                // sorted range set is used for integer comparison (e.g. id = 123 ) where min and max is the same value
+                if (sortedRangeSet.isSingleValue()) {
+                    predicateValues = new ArrayList<>();
+                    predicateValues.add(sortedRangeSet.getSingleValue());
+                }
+            }
+
+            // run values against the bloomfilters
+            if (predicateValues == null || predicateValues.isEmpty()) {
+                // no values checked, treat as failure: read
+                return true;
+            }
+
+            for (Object o : predicateValues) {
+                for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
+                    BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
+
+                    TruthValue truthValue = checkInBloomFilter(bloomfilter, o, columnStatistics.getHasNull());
+                    if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
+                        // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
+                        return true;
+                    }
+                }
             }
         }
 
-        if (allPassedBloomfilters) {
-            // none of the bloomfilters caused a "hit" meaning we should not read
-            log.debug("Not reading, didn't match any of the bloom filters, data is not here");
-            return false;
-        }
-
-        // not enough knowledge in the bloomfilters, let's read it anyway
-        return true;
+        // none of the bloomfilters caused a "hit" meaning we should not read
+        log.debug("Not reading, didn't match any of the bloomfilters, data is not here");
+        return false;
     }
 
     private TruthValue checkInBloomFilter(BloomFilter bf, Object predObj, boolean hasNull)
@@ -226,7 +224,6 @@ public class TupleDomainOrcPredicate<C>
             }
         }
         else {
-            // @todo enable code below once support for Text HiveDecimalWritable and Date is done
             log.warn("Bloom filter check not supported for type " + predObj);
             return TruthValue.YES;
         }
