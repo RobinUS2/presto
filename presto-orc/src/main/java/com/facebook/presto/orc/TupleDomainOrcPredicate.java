@@ -148,32 +148,15 @@ public class TupleDomainOrcPredicate<C>
                 return true;
             }
 
-            // extract values
+            // extract values from domain
             Domain domain = effectivePredicateDomains.get(columnReference.getColumn());
-            ValueSet values = domain.getValues();
-            Collection<Object> predicateValues = null;
-            if (values instanceof EquatableValueSet) {
-                EquatableValueSet eqValues = (EquatableValueSet) values;
-                if (eqValues.isWhiteList()) {
-                    // we can only work with values we know, not excluded blacklists because other rows might contain the data we need
-                    predicateValues = values.getDiscreteValues().getValues();
-                }
-            }
-            else if (values instanceof SortedRangeSet) {
-                SortedRangeSet sortedRangeSet = (SortedRangeSet) values;
-                // sorted range set is used for integer comparison (e.g. id = 123 ) where min and max is the same value
-                if (sortedRangeSet.isSingleValue()) {
-                    predicateValues = new ArrayList<>();
-                    predicateValues.add(sortedRangeSet.getSingleValue());
-                }
-            }
-
-            // run values against the bloomfilters
+            Collection<Object> predicateValues = predicateValuesFromDomain(domain);
             if (predicateValues == null || predicateValues.isEmpty()) {
                 // no values checked, treat as failure: read
                 return true;
             }
 
+            // run values against the bloomfilters: none can match in order to skip a read
             for (Object o : predicateValues) {
                 for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
                     BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
@@ -190,6 +173,28 @@ public class TupleDomainOrcPredicate<C>
         // none of the bloomfilters caused a "hit" meaning we should not read
         log.debug("Not reading, didn't match any of the bloomfilters, data is not here");
         return false;
+    }
+
+    protected Collection<Object> predicateValuesFromDomain(Domain domain)
+    {
+        Collection<Object> predicateValues = null;
+        ValueSet values = domain.getValues();
+        if (values instanceof EquatableValueSet) {
+            EquatableValueSet eqValues = (EquatableValueSet) values;
+            if (eqValues.isWhiteList()) {
+                // we can only work with values we know, not excluded blacklists because other rows might contain the data we need
+                predicateValues = values.getDiscreteValues().getValues();
+            }
+        }
+        else if (values instanceof SortedRangeSet) {
+            SortedRangeSet sortedRangeSet = (SortedRangeSet) values;
+            // sorted range set is used for integer comparison (e.g. id = 123 ) where min and max is the same value
+            if (sortedRangeSet.isSingleValue()) {
+                predicateValues = new ArrayList<>();
+                predicateValues.add(sortedRangeSet.getSingleValue());
+            }
+        }
+        return predicateValues;
     }
 
     private TruthValue checkInBloomFilter(BloomFilter bf, Object predObj, boolean hasNull)
