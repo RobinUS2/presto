@@ -15,14 +15,16 @@ package com.facebook.presto.orc;
 
 import com.facebook.presto.hive.protobuf.CodedInputStream;
 import com.facebook.presto.orc.metadata.HiveBloomFilter;
+import com.facebook.presto.orc.metadata.OrcMetadataReader;
 import com.facebook.presto.orc.metadata.RowGroupBloomfilter;
 import org.apache.hadoop.hive.ql.io.orc.OrcProto;
 import org.apache.hive.common.util.BloomFilter;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.testng.Assert.assertEquals;
@@ -32,6 +34,8 @@ import static org.testng.Assert.assertTrue;
 public class TestOrcBloomfilters
 {
     private static final String TEST_STRING = "ORC_STRING";
+    private static final String TEST_STRING_NOT_WRITTEN = "ORC_STRINGnot";
+    private static final String TEST_STRING_2 = "ORC_STRING_ALT";
     private static final int TEST_INTEGER = 12345;
 
     @Test
@@ -43,7 +47,7 @@ public class TestOrcBloomfilters
         // String
         bf.addString(TEST_STRING);
         assertTrue(bf.testString(TEST_STRING));
-        assertFalse(bf.testString(TEST_STRING + "not"));
+        assertFalse(bf.testString(TEST_STRING_NOT_WRITTEN));
 
         // Integer
         bf.addLong(TEST_INTEGER);
@@ -64,7 +68,7 @@ public class TestOrcBloomfilters
 
         // String
         assertTrue(hiveBloomFilter.testString(TEST_STRING));
-        assertFalse(hiveBloomFilter.testString(TEST_STRING + "not"));
+        assertFalse(hiveBloomFilter.testString(TEST_STRING_NOT_WRITTEN));
 
         // Integer
         assertTrue(hiveBloomFilter.testLong(TEST_INTEGER));
@@ -83,10 +87,10 @@ public class TestOrcBloomfilters
         // Write value
         BloomFilter bfWrite = new BloomFilter(1000L, 0.05D);
         assertFalse(bfWrite.testString(TEST_STRING));
-        assertFalse(bfWrite.testString(TEST_STRING + "not"));
+        assertFalse(bfWrite.testString(TEST_STRING_NOT_WRITTEN));
         bfWrite.addString(TEST_STRING);
         assertTrue(bfWrite.testString(TEST_STRING));
-        assertFalse(bfWrite.testString(TEST_STRING + "not"));
+        assertFalse(bfWrite.testString(TEST_STRING_NOT_WRITTEN));
         for (long l : bfWrite.getBitSet()) {
             bfBuilder.addBitset(l);
         }
@@ -103,6 +107,24 @@ public class TestOrcBloomfilters
         os.flush();
         byte[] bytes = os.toByteArray();
 
+        // Read through method
+        InputStream inputStream = new ByteArrayInputStream(bytes);
+        OrcMetadataReader metadataReader = new OrcMetadataReader();
+        List<RowGroupBloomfilter> bloomfilters = metadataReader.readBloomfilterIndexes(inputStream);
+        assertEquals(1, bloomfilters.size());
+        assertTrue(bloomfilters.get(0).getBloomfilter().testString(TEST_STRING));
+        assertFalse(bloomfilters.get(0).getBloomfilter().testString(TEST_STRING_NOT_WRITTEN));
+        assertEquals(bfWrite.getBitSize(), bloomfilters.get(0).getBloomfilter().getBitSize());
+        assertEquals(bfWrite.getNumHashFunctions(), bloomfilters.get(0).getBloomfilter().getNumHashFunctions());
+
+        // Validate bitset
+        int i = 0;
+        for (long l : bloomfilters.get(0).getBloomfilter().getBitSet()) {
+            assertEquals(l, bfWrite.getBitSet()[i]);
+            i++;
+        }
+
+        // Read directly: allows better inspection of the bitsets (helped to fix a lot of bugs)
         CodedInputStream input = CodedInputStream.newInstance(bytes);
         OrcProto.BloomFilterIndex bfDeserIdx = OrcProto.BloomFilterIndex.parseFrom(input);
         List<OrcProto.BloomFilter> bloomFilterList = bfDeserIdx.getBloomFilterList();
@@ -111,7 +133,7 @@ public class TestOrcBloomfilters
         OrcProto.BloomFilter bloomFilterRead = bloomFilterList.get(0);
 
         // Validate contents of ORC bloom filter bitset
-        int i = 0;
+        i = 0;
         for (long l : bloomFilterRead.getBitsetList()) {
             assertEquals(l, bfWrite.getBitSet()[i]);
             i++;
@@ -137,12 +159,12 @@ public class TestOrcBloomfilters
         assertEquals(bfWrite.getBitSet().length, bloomFilterRead.getBitsetCount());
 
         // test contents
-        assertFalse(rowGroupBloomfilterBloomfilter.testString("robin"));
-        rowGroupBloomfilterBloomfilter.addString("robin");
-        assertTrue(rowGroupBloomfilterBloomfilter.testString("robin"));
+        assertFalse(rowGroupBloomfilterBloomfilter.testString(TEST_STRING_2));
+        rowGroupBloomfilterBloomfilter.addString(TEST_STRING_2);
+        assertTrue(rowGroupBloomfilterBloomfilter.testString(TEST_STRING_2));
 
         // test contents
         assertTrue(rowGroupBloomfilterBloomfilter.testString(TEST_STRING));
-        assertFalse(rowGroupBloomfilterBloomfilter.testString(TEST_STRING + "bartosz"));
+        assertFalse(rowGroupBloomfilterBloomfilter.testString(TEST_STRING_NOT_WRITTEN));
     }
 }
