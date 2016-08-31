@@ -126,6 +126,10 @@ public class TupleDomainOrcPredicate<C>
 
         // effective predicate domains
         Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
+        if (effectivePredicateDomains.isEmpty()) {
+            // no predicate, probably a where-less query, read
+            return true;
+        }
         Map<C, Domain> stripDomains = optionalStripeDomains.get();
 
         // iterate column references
