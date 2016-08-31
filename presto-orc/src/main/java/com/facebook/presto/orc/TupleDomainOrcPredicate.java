@@ -52,11 +52,6 @@ import static com.facebook.presto.spi.type.Decimals.rescale;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-//import org.apache.hadoop.hive.serde2.io.DateWritable;
-//import org.apache.hadoop.hive.serde2.io.HiveDecimalWritable;
-//import org.apache.hadoop.io.Text;
-//import java.sql.Date;
-
 public class TupleDomainOrcPredicate<C>
         implements OrcPredicate
 {
@@ -111,31 +106,23 @@ public class TupleDomainOrcPredicate<C>
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
                 allPassedBloomfilters = false;
-//                log.info("No column stats for " + columnReference.toString());
                 continue;
             }
 
             List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
             if (bloomfilters == null || bloomfilters.isEmpty()) {
                 allPassedBloomfilters = false;
-//                log.info("No bloomfilters for " + columnReference.toString());
                 continue;
             }
 
             // @todo refactor logic
             Optional<Map<C, Domain>> domains1 = effectivePredicate.getDomains();
             if (domains1.isPresent()) {
-//                log.info("found effective predicate domains");
                 Map<C, Domain> cDomainMap = domains1.get();
                 if (cDomainMap.containsKey(columnReference.getColumn())) {
-//                    log.info("found effective predicate domains for colujmn");
-
                     // extract values
                     Domain domain = cDomainMap.get(columnReference.getColumn());
                     ValueSet values = domain.getValues();
-//                    log.info("values type " + values.getType().getDisplayName());
-//                    log.info("values class " + values.getClass().getCanonicalName());
-//                    log.info("values  " + values.toString());
                     Collection<Object> predicateValues = null;
                     if (values instanceof EquatableValueSet) {
                         EquatableValueSet eqValues = (EquatableValueSet) values;
@@ -156,12 +143,9 @@ public class TupleDomainOrcPredicate<C>
                     // run values against the bloomfilters
                     if (predicateValues != null && !predicateValues.isEmpty()) {
                         for (Object o : predicateValues) {
-//                            log.info("Equatable value set value=" + String.valueOf(o));
-
                             for (RowGroupBloomfilter rowGroupBloomfilter : bloomfilters) {
                                 BloomFilter bloomfilter = rowGroupBloomfilter.getBloomfilter();
-//                                log.info("bf = " + bloomfilter.toString());
-//                                log.info("bitset = " + Arrays.toString(bloomfilter.getBitSet()));
+
                                 TruthValue truthValue = checkInBloomFilter(bloomfilter, o, columnStatistics.getHasNull());
                                 if (truthValue == TruthValue.YES || truthValue == TruthValue.YES_NO || truthValue == TruthValue.YES_NO_NULL || truthValue == TruthValue.YES_NULL) {
                                     // bloom filter is matched here return true so we select this stripe as it likely contains data which we need to read
@@ -182,7 +166,6 @@ public class TupleDomainOrcPredicate<C>
             }
             else {
                 allPassedBloomfilters = false;
-//                log.info("No predicate domains");
             }
         }
 
@@ -217,8 +200,6 @@ public class TupleDomainOrcPredicate<C>
             }
         }
         else if (predObj instanceof String ||
-//                predObj instanceof Text ||
-//                predObj instanceof HiveDecimalWritable ||
                 predObj instanceof BigDecimal) {
             if (bf.testString(predObj.toString())) {
                 result = TruthValue.YES_NO_NULL;
@@ -229,22 +210,10 @@ public class TupleDomainOrcPredicate<C>
                 result = TruthValue.YES_NO_NULL;
             }
         }
-//        else if (predObj instanceof Date) {
-//            if (bf.testLong(DateWritable.dateToDays((Date) predObj))) {
-//                result = TruthValue.YES_NO_NULL;
-//            }
-//        }
         else {
             // @todo enable code below once support for Text HiveDecimalWritable and Date is done
             log.warn("Bloom filter check not supported for type " + predObj);
             return TruthValue.YES;
-//            // if the predicate object is null and if hasNull says there are no nulls then return NO
-//            if (predObj == null && !hasNull) {
-//                result = TruthValue.NO;
-//            }
-//            else {
-//                result = TruthValue.YES_NO_NULL;
-//            }
         }
 
         if (result == TruthValue.YES_NO_NULL && !hasNull) {

@@ -39,7 +39,6 @@ public class TestOrcBloomfilters
             throws Exception
     {
         BloomFilter bf = new BloomFilter(1_000_000L, 0.05D);
-        System.out.println(bf.toString());
 
         // String
         bf.addString(TEST_STRING);
@@ -90,13 +89,10 @@ public class TestOrcBloomfilters
         assertFalse(bfWrite.testString(TEST_STRING + "not"));
         for (long l : bfWrite.getBitSet()) {
             bfBuilder.addBitset(l);
-//            System.out.println(l);
         }
         bfBuilder.setNumHashFunctions(bfWrite.getNumHashFunctions());
         OrcProto.BloomFilter bf = bfBuilder.build();
         assertTrue(bf.isInitialized());
-        System.out.println("numhash=" + bfWrite.getNumHashFunctions());
-        System.out.println("bitset count = " + bf.getBitsetCount());
         builder.addBloomFilter(bf);
 
         OrcProto.BloomFilterIndex index = builder.build();
@@ -106,7 +102,6 @@ public class TestOrcBloomfilters
         index.writeTo(os);
         os.flush();
         byte[] bytes = os.toByteArray();
-        System.out.println(Arrays.toString(bytes));
 
         CodedInputStream input = CodedInputStream.newInstance(bytes);
         OrcProto.BloomFilterIndex bfDeserIdx = OrcProto.BloomFilterIndex.parseFrom(input);
@@ -114,12 +109,10 @@ public class TestOrcBloomfilters
         assertEquals(1, bloomFilterList.size());
 
         OrcProto.BloomFilter bloomFilterRead = bloomFilterList.get(0);
-        System.out.println("bscountread=" + bloomFilterRead.getBitsetCount());
 
         // Validate contents of ORC bloom filter bitset
         int i = 0;
         for (long l : bloomFilterRead.getBitsetList()) {
-//            System.out.println(l + " = " + bfWrite.getBitSet()[i]);
             assertEquals(l, bfWrite.getBitSet()[i]);
             i++;
         }
@@ -128,7 +121,6 @@ public class TestOrcBloomfilters
         // Validate contents of bloom filter bitset
         i = 0;
         for (long l : rowGroupBloomfilter.getBloomfilter().getBitSet()) {
-            System.out.println(l + " = " + bfWrite.getBitSet()[i]);
             assertEquals(l, bfWrite.getBitSet()[i]);
             i++;
         }
