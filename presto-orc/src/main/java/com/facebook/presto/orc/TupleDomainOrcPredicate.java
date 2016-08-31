@@ -145,8 +145,14 @@ public class TupleDomainOrcPredicate<C>
                 return true;
             }
 
-            // extract values from domain
+            // get domain
             Domain domain = effectivePredicateDomains.get(columnReference.getColumn());
+            if (domain.isAll()) {
+                // all values are okay, go to next one as we don't have to check the bf
+                continue;
+            }
+
+            // extract values from domain
             Collection<Object> predicateValues = predicateValuesFromDomain(domain);
             if (predicateValues == null || predicateValues.isEmpty()) {
                 // no values checked, treat as failure: read
