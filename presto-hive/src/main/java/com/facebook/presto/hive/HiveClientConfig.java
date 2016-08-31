@@ -886,7 +886,7 @@ public class HiveClientConfig
     }
 
     @Config("hive.orc.bloomfilters")
-    public HiveClientConfig setOrcStreamBufferSize(boolean useOrcBloomfilters)
+    public HiveClientConfig setUseOrcBloomfilters(boolean useOrcBloomfilters)
     {
         this.useOrcBloomfilters = useOrcBloomfilters;
         return this;
