@@ -126,8 +126,16 @@ public class TupleDomainOrcPredicate<C>
         // effective predicate domains
         Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
 
-        // check bloomfilters per column
-        for (ColumnReference<C> columnReference : columnReferences) {
+        // iterate column references
+        outer: for (ColumnReference<C> columnReference : columnReferences) {
+            // is this part of a predicate?
+            for (Map.Entry<C, Domain> kv : effectivePredicateDomains.entrySet()) {
+                if (kv.getKey().equals(columnReference.getColumn())) {
+                    log.info("Skipping bf check for non-predicate " + columnReference.toString());
+                    continue outer;
+                }
+            }
+
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
             if (columnStatistics == null) {
                 // need column statistics, treat as failure: read
@@ -137,11 +145,6 @@ public class TupleDomainOrcPredicate<C>
             List<RowGroupBloomfilter> bloomfilters = columnStatistics.getBloomfilters();
             if (bloomfilters == null || bloomfilters.isEmpty()) {
                 // need bloom filters, treat as failure: read
-                return true;
-            }
-
-            if (!effectivePredicateDomains.containsKey(columnReference.getColumn())) {
-                // no domain found for column, treat as failure: read
                 return true;
             }
 
