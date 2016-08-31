@@ -19,6 +19,7 @@ import java.util.List;
 
 public class HiveBloomFilter extends BloomFilter
 {
+    // constructor that allows unserializing a long list into the actual hive bloom filter
     public HiveBloomFilter(List<Long> bits, int numBits, int numFuncs)
     {
         super();
