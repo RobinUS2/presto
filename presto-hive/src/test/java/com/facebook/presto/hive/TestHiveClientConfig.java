@@ -91,6 +91,7 @@ public class TestHiveClientConfig
                 .setParquetPredicatePushdownEnabled(false)
                 .setParquetOptimizedReaderEnabled(false)
                 .setAssumeCanonicalPartitionKeys(false)
+                .setUseOrcBloomfilters(true)
                 .setOrcMaxMergeDistance(new DataSize(1, Unit.MEGABYTE))
                 .setOrcMaxBufferSize(new DataSize(8, Unit.MEGABYTE))
                 .setOrcStreamBufferSize(new DataSize(8, Unit.MEGABYTE))
