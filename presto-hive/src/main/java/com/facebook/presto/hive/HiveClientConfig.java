@@ -114,6 +114,7 @@ public class HiveClientConfig
     private boolean assumeCanonicalPartitionKeys;
 
     private boolean useOrcColumnNames;
+    private boolean useOrcBloomfilters;
     private DataSize orcMaxMergeDistance = new DataSize(1, MEGABYTE);
     private DataSize orcMaxBufferSize = new DataSize(8, MEGABYTE);
     private DataSize orcStreamBufferSize = new DataSize(8, MEGABYTE);
@@ -876,6 +877,18 @@ public class HiveClientConfig
     public HiveClientConfig setOrcStreamBufferSize(DataSize orcStreamBufferSize)
     {
         this.orcStreamBufferSize = orcStreamBufferSize;
+        return this;
+    }
+
+    public boolean isUseOrcBloomfilters()
+    {
+        return useOrcBloomfilters;
+    }
+
+    @Config("hive.orc.bloomfilters")
+    public HiveClientConfig setOrcStreamBufferSize(boolean useOrcBloomfilters)
+    {
+        this.useOrcBloomfilters = useOrcBloomfilters;
         return this;
     }
 

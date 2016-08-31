@@ -31,6 +31,7 @@ public final class HiveSessionProperties
     private static final String ORC_MAX_MERGE_DISTANCE = "orc_max_merge_distance";
     private static final String ORC_MAX_BUFFER_SIZE = "orc_max_buffer_size";
     private static final String ORC_STREAM_BUFFER_SIZE = "orc_stream_buffer_size";
+    private static final String ORC_BLOOMFILTERS = "orc_bloomfilters";
     private static final String PARQUET_PREDICATE_PUSHDOWN_ENABLED = "parquet_predicate_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_READER_ENABLED = "parquet_optimized_reader_enabled";
     private static final String MAX_SPLIT_SIZE = "max_split_size";
@@ -63,6 +64,11 @@ public final class HiveSessionProperties
                         config.getOrcStreamBufferSize(),
                         false),
                 booleanSessionProperty(
+                        ORC_BLOOMFILTERS,
+                        "ORC: Use bloomfilters in predicate",
+                        config.isUseOrcBloomfilters(),
+                        false),
+                booleanSessionProperty(
                         PARQUET_OPTIMIZED_READER_ENABLED,
                         "Experimental: Parquet: Enable optimized reader",
                         config.isParquetOptimizedReaderEnabled(),
@@ -82,6 +88,11 @@ public final class HiveSessionProperties
                         "Max initial split size",
                         config.getMaxInitialSplitSize(),
                         true));
+    }
+
+    public static boolean isUseOrcBloomfilters(ConnectorSession session)
+    {
+        return session.getProperty(ORC_BLOOMFILTERS, Boolean.class);
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()

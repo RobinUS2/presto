@@ -59,11 +59,18 @@ public class TupleDomainOrcPredicate<C>
     private final List<ColumnReference<C>> columnReferences;
 
     private static final Logger log = Logger.get(TupleDomainOrcPredicate.class);
+    private final boolean useOrcBloomfilters;
 
-    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences, boolean useOrcBloomfilters)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columnReferences = ImmutableList.copyOf(requireNonNull(columnReferences, "columnReferences is null"));
+        this.useOrcBloomfilters = useOrcBloomfilters;
+    }
+
+    public TupleDomainOrcPredicate(TupleDomain<C> effectivePredicate, List<ColumnReference<C>> columnReferences)
+    {
+        this(effectivePredicate, columnReferences, true);
     }
 
     @Override
@@ -87,8 +94,16 @@ public class TupleDomainOrcPredicate<C>
         // this is where we create a domain for this stripe, basically a map of what this stripe contains
         TupleDomain<C> stripeDomain = TupleDomain.withColumnDomains(domains.build());
 
-        // Compare effective predicate with the current stripe
-        if (!effectivePredicate.overlaps(stripeDomain)) {
+        // compare effective predicate with the current stripe
+        boolean overlap = effectivePredicate.overlaps(stripeDomain);
+
+        // use bloomfilters?
+        if (!useOrcBloomfilters) {
+            return overlap;
+        }
+
+        // no overlap, no need to check the bloomfilters because we already know there's nothing here
+        if (!overlap) {
             // No overlap, stop here
             return false;
         }

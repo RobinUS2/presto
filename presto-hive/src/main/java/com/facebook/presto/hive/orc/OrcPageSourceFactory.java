@@ -18,6 +18,7 @@ import com.facebook.presto.hive.HiveClientConfig;
 import com.facebook.presto.hive.HiveColumnHandle;
 import com.facebook.presto.hive.HivePageSourceFactory;
 import com.facebook.presto.hive.HivePartitionKey;
+import com.facebook.presto.hive.HiveSessionProperties;
 import com.facebook.presto.orc.OrcDataSource;
 import com.facebook.presto.orc.OrcPredicate;
 import com.facebook.presto.orc.OrcReader;
@@ -60,6 +61,7 @@ import static com.facebook.presto.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxBufferSize;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcMaxMergeDistance;
 import static com.facebook.presto.hive.HiveSessionProperties.getOrcStreamBufferSize;
+import static com.facebook.presto.hive.HiveSessionProperties.isUseOrcBloomfilters;
 import static com.facebook.presto.hive.HiveUtil.isDeserializerClass;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
@@ -119,7 +121,8 @@ public class OrcPageSourceFactory
                 typeManager,
                 getOrcMaxMergeDistance(session),
                 getOrcMaxBufferSize(session),
-                getOrcStreamBufferSize(session)));
+                getOrcStreamBufferSize(session),
+                isUseOrcBloomfilters(session)));
     }
 
     public static OrcPageSource createOrcPageSource(
@@ -138,7 +141,8 @@ public class OrcPageSourceFactory
             TypeManager typeManager,
             DataSize maxMergeDistance,
             DataSize maxBufferSize,
-            DataSize streamBufferSize)
+            DataSize streamBufferSize,
+            boolean useOrcBloomfilters)
     {
         OrcDataSource orcDataSource;
         try {
@@ -170,7 +174,7 @@ public class OrcPageSourceFactory
                 }
             }
 
-            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build());
+            OrcPredicate predicate = new TupleDomainOrcPredicate<>(effectivePredicate, columnReferences.build(), useOrcBloomfilters);
 
             OrcRecordReader recordReader = reader.createRecordReader(
                     includedColumns.build(),
