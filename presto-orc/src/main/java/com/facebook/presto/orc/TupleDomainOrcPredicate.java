@@ -127,13 +127,18 @@ public class TupleDomainOrcPredicate<C>
         Map<C, Domain> effectivePredicateDomains = optionalEffectivePredicateDomains.get();
 
         // iterate column references
-        outer: for (ColumnReference<C> columnReference : columnReferences) {
+        for (ColumnReference<C> columnReference : columnReferences) {
             // is this part of a predicate?
+            boolean found = false;
             for (Map.Entry<C, Domain> kv : effectivePredicateDomains.entrySet()) {
                 if (kv.getKey().equals(columnReference.getColumn())) {
-                    log.info("Skipping bf check for non-predicate " + columnReference.toString());
-                    continue outer;
+                    found = true;
+                    break;
                 }
+            }
+            if (!found) {
+                log.info("Skipping bf check for non-predicate " + columnReference.toString());
+                continue;
             }
 
             ColumnStatistics columnStatistics = statisticsByColumnIndex.get(columnReference.getOrdinal());
