@@ -108,9 +108,6 @@ public class TupleDomainOrcPredicate<C>
             return false;
         }
 
-        // check bloomfilters (more expensive so separated from the domain check above)
-        boolean allPassedBloomfilters = true;
-
         // we need to have filters in order to say we checked all
         if (columnReferences.isEmpty()) {
             // treat as failure: read
